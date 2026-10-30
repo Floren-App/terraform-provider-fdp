@@ -10,20 +10,27 @@ plugin framework and works with any tool that speaks the same plugin protocol.
 
 ## Installation
 
+The provider is installed from its [GitHub releases](https://github.com/Floren-App/terraform-provider-fdp/releases),
+not from a public registry. Releases contain binaries for Linux, macOS, Windows and FreeBSD. Their `SHA256SUMS`
+file is signed with the key in [`signing-key.asc`](signing-key.asc) (fingerprint
+`AD3A 4658 4EB1 012F 07D2 B6BC 182A 3416 0F87 F08F`). From a checkout of the platform repository,
+`scripts/install-provider.sh 0.3.0 "$HOME/.fdp-providers"` verifies a release and places it in a filesystem
+mirror; point OpenTofu at that mirror (`provider_installation { filesystem_mirror { ... } }`) and declare:
+
 ```hcl
 terraform {
   required_providers {
-    fdp = { source = "floren-app/fdp", version = "~> 0.2" }
+    fdp = { source = "registry.opentofu.org/floren-app/fdp", version = "0.3.0" }
   }
 }
 ```
 
-Releases contain binaries for Linux, macOS, Windows and FreeBSD. Their `SHA256SUMS` file is signed with
-the key in [`signing-key.asc`](signing-key.asc) (fingerprint `AD3A 4658 4EB1 012F 07D2 B6BC 182A 3416 0F87 F08F`):
+To verify a download by hand:
 
 ```sh
 gpg --import signing-key.asc
-gpg --verify terraform-provider-fdp_0.2.0_SHA256SUMS.sig terraform-provider-fdp_0.2.0_SHA256SUMS
+gpg --verify terraform-provider-fdp_0.3.0_SHA256SUMS.sig terraform-provider-fdp_0.3.0_SHA256SUMS
+sha256sum --check --ignore-missing terraform-provider-fdp_0.3.0_SHA256SUMS
 ```
 
 Development happens in [floren-data-platform-public](https://github.com/Floren-App/floren-data-platform-public)
@@ -79,6 +86,7 @@ declared here. See `docs/configuration.md` for what lives where.
 | `fdp_compute_pool` with `dedicated = true` | A team's own warehouse (e.g. for business-critical Airflow): requires `allowed_groups`, has no slot limit and never queues; only those groups deploy or run on it. Not for Trino workers or workspaces. | name |
 | `fdp_default_warehouse` | Declare once: the warehouse work without one runs on, and that warehouse choices start with. If a program's `fdp.json` names a warehouse that does not exist, its runs use this one. Not a dedicated or Trino warehouse. | `default` |
 | `fdp_workspace_template` | A group's default workspace: every member of the app group gets their own private workspace from it, created stopped (also later members); leaving removes theirs. `repository_ids` are cloned at first start. | ID |
+| `fdp_data_policy` | A column mask (`method` null, redact, hash, partial or expression) or row filter (`expression`) on one table of a governed SQL schema, for everyone except `exempt_groups` and `exempt_principals`. Expressions may use `is_member('<group>')`; formatting differences never show as changes. Requires Owner on the schema. | ID |
 | `fdp_egress_allowlist` | Host names VS Code and RStudio workspaces may reach over HTTPS through the egress proxy (Helm `egressProxy.enabled`), as `hosts = { "github.com" = "Git" }`; `*.example.com` covers subdomains. Declare once; destroy empties it. | `egress` |
 | `fdp_runtime` | An additional runtime version (e.g. Python 3.11) and its image. The versions the installation ships come from Helm (`runtime.images`, `runtime.versions`) and follow it on upgrades; they are not declared here. | `kind/version` |
 | `fdp_query_log_settings` | Declare once: how long the query log keeps every Trino query (`retention_days`, default 90) and whether it keeps SQL text (`record_sql`, default false: queries can contain literal values). | `query_log` |
