@@ -24,6 +24,7 @@ type appGroupModel struct {
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
 	Owners      types.Set    `tfsdk:"owners"`
+	AppProfile  types.String `tfsdk:"app_profile"`
 }
 
 type groupOut struct {
@@ -32,6 +33,7 @@ type groupOut struct {
 	Description string   `json:"description"`
 	Owners      []string `json:"owners"`
 	Bindings    []string `json:"bindings"`
+	AppProfile  *string  `json:"app_profile"`
 }
 
 func NewAppGroupResource() resource.Resource { return &appGroupResource{} }
@@ -50,6 +52,10 @@ func (r *appGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"description": schema.StringAttribute{Optional: true, Computed: true, Default: stringdefault.StaticString("")},
 			"owners": schema.SetAttribute{ElementType: types.StringType, Required: true,
 				Description: "Principal IDs who manage the group's members."},
+			"app_profile": schema.StringAttribute{Optional: true, Computed: true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Description: "Name of the fdp_app_profile the group gets (which parts of the app its members use when it is their " +
+					"active group). Empty string: the default profile. Left out: whatever is set in the app."},
 		},
 	}
 }
@@ -78,11 +84,19 @@ func findGroup(ctx context.Context, api *client.Client, id string) (*groupOut, e
 func (m *appGroupModel) apply(out *groupOut) {
 	m.ID, m.Name, m.Description = types.StringValue(out.ID), types.StringValue(out.Name), types.StringValue(out.Description)
 	m.Owners = setValue(out.Owners)
+	m.AppProfile = types.StringValue("")
+	if out.AppProfile != nil {
+		m.AppProfile = types.StringValue(*out.AppProfile)
+	}
 }
 
 func (r *appGroupResource) body(ctx context.Context, m *appGroupModel, d *diagSink) map[string]any {
-	return map[string]any{"name": m.Name.ValueString(), "description": m.Description.ValueString(),
+	body := map[string]any{"name": m.Name.ValueString(), "description": m.Description.ValueString(),
 		"owners": stringSet(ctx, m.Owners, d.d)}
+	if !m.AppProfile.IsNull() && !m.AppProfile.IsUnknown() {
+		body["app_profile"] = m.AppProfile.ValueString()
+	}
+	return body
 }
 
 func (r *appGroupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -228,11 +242,12 @@ func (r *appGroupMemberResource) Delete(ctx context.Context, req resource.Delete
 type roleAssignmentResource struct{ api *client.Client }
 
 type roleAssignmentModel struct {
-	ID          types.String `tfsdk:"id"`
-	ResourceID  types.String `tfsdk:"resource_id"`
-	Role        types.String `tfsdk:"role"`
-	AppGroupID  types.String `tfsdk:"app_group_id"`
-	PrincipalID types.String `tfsdk:"principal_id"`
+	ID            types.String `tfsdk:"id"`
+	ResourceID    types.String `tfsdk:"resource_id"`
+	Role          types.String `tfsdk:"role"`
+	AppGroupID    types.String `tfsdk:"app_group_id"`
+	PrincipalID   types.String `tfsdk:"principal_id"`
+	Justification types.String `tfsdk:"justification_id"`
 }
 
 type assignmentOut struct {
@@ -261,6 +276,9 @@ func (r *roleAssignmentResource) Schema(_ context.Context, _ resource.SchemaRequ
 				"on the package repository (resource_id \"packages\"): Publisher, Maintainer or Owner."},
 			"app_group_id": schema.StringAttribute{Optional: true, PlanModifiers: replace},
 			"principal_id": schema.StringAttribute{Optional: true, PlanModifiers: replace},
+			"justification_id": schema.StringAttribute{Optional: true,
+				Description: "An approved compliance case (its ID, shown in the app) for this access, " +
+					"needed when an access policy applies to the object's data in its layer."},
 		},
 	}
 }
@@ -276,7 +294,7 @@ func (r *roleAssignmentResource) ImportState(ctx context.Context, req resource.I
 		return
 	}
 	m := roleAssignmentModel{ID: types.StringValue(req.ID), ResourceID: types.StringValue(parts[0]),
-		AppGroupID: types.StringNull(), PrincipalID: types.StringNull(), Role: types.StringNull()}
+		AppGroupID: types.StringNull(), PrincipalID: types.StringNull(), Role: types.StringNull(), Justification: types.StringNull()}
 	if parts[1] == "group" {
 		m.AppGroupID = types.StringValue(parts[2])
 	} else {
@@ -298,6 +316,9 @@ func (r *roleAssignmentResource) put(ctx context.Context, m *roleAssignmentModel
 		return
 	}
 	body := map[string]any{"role": m.Role.ValueString()}
+	if !m.Justification.IsNull() && m.Justification.ValueString() != "" {
+		body["justification_id"] = m.Justification.ValueString()
+	}
 	if !m.AppGroupID.IsNull() {
 		body["app_group_id"] = m.AppGroupID.ValueString()
 	} else {
