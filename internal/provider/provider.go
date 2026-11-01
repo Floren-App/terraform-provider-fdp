@@ -76,12 +76,13 @@ func (p *fdpProvider) Configure(ctx context.Context, req provider.ConfigureReque
 
 func (p *fdpProvider) Resources(context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
+		NewPermissionAssignmentResource, NewCustomRoleResource,
 		NewLayerResource, NewComputePoolResource, NewDataSourceResource, NewSchemaResource, NewAppGroupResource,
 		NewKafkaClusterResource, NewKafkaTopicResource,
 		NewAppGroupMemberResource, NewRoleAssignmentResource, NewRepositoryResource, NewWorkloadResource,
 		NewFolderResource, NewServiceAccountResource, NewSecretResource, NewAPIResource, NewAPIOperationResource,
 		NewGovernanceResource, NewSLAResource, NewMetricResource, NewWorkspaceSettingsResource, NewDefaultLayerResource, NewDefaultWarehouseResource, NewWorkspaceTemplateResource,
-		NewAppProfileResource, NewNotificationWebhookResource, NewAccessFormResource, NewAccessPolicyResource, NewComplianceRoleResource, NewClassificationsResource, NewColumnClassificationResource, NewDataProductResource, NewProductConsumerResource,
+		NewAppProfileResource, NewNotificationWebhookResource, NewAlertChannelResource, NewAlertRuleResource, NewAccessFormResource, NewAccessPolicyResource, NewComplianceRoleResource, NewClassificationsResource, NewColumnClassificationResource, NewDataProductResource, NewProductConsumerResource,
 		NewEgressAllowlistResource, NewRuntimeResource, NewQueryLogSettingsResource, NewPackageAllowlistResource, NewPackageResource, NewDataPolicyResource,
 	}
 }
